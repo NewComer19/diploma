@@ -1,24 +1,22 @@
 from numpy.random import normal
 from math import sqrt, e
 from numpy import array, median, amax
+from matplotlib.pyplot import *
 
-number_of_group_expertise = 10
+number_of_group_expertise = 50
 number_of_experts = 6
 evaluation_methods = {"mean":0,
                       "median":0,
                       "iterative":0,
-                      "method of lowest squares": 0,
-                      "method of lowest absolutes": 0}
+                      "competence":0}
 evaluation_methods_errors = {"mean":0,
                       "median":0,
                       "iterative":0,
-                      "method of lowest squares": 0,
-                      "method of lowest absolutes": 0}
+                    "competence":0}
 evaluation_methods_dispersion = {"mean":0,
                       "median":0,
                       "iterative":0,
-                      "method of lowest squares": 0,
-                      "method of lowest absolutes": 0}
+                        "competence":0}
 E = 0.001
 
 
@@ -67,30 +65,6 @@ def count_mean(data_in_matrix):
             sum += grade
         mean_for_every_object.append(sum / number_of_experts)
     return mean_for_every_object
-
-
-def method_lowest_squares(data_in_matrix, mean_grades_for_method):
-    mlq_grades = []
-    row_counter = 0
-    for row in data_in_matrix:
-        sum_for_every_row = 0
-        for grade in row:
-            sum_for_every_row += (grade - mean_grades_for_method[row_counter]) ** 2
-        row_counter += 1
-        if sum_for_every_row > 10:
-            sum_for_every_row = 10
-        mlq_grades.append(sum_for_every_row)
-    return mlq_grades
-
-
-def method_lowest_abs(data_in_matrix):
-    mla_grades = []
-    for row in data_in_matrix:
-        sum = 0
-        for grade in row:
-            sum += abs(grade - median(row))
-        mla_grades.append(sum)
-    return mla_grades
 
 
 def distance(data_in_matrix, center):
@@ -150,6 +124,13 @@ def errors_for_method(dict, u):
     return
 
 
+def objects_eval(data, comp, with_c=True):
+    if with_c:
+        return [sum(data[i] * comp) / sum(comp) for i in range(len(data))]
+    else:
+        return [sum(i) / data.shape[1] for i in data]
+
+
 def cov(errors_for_each_method):
     dict_of_tuples = get_tuples_of_methods(errors_for_each_method)
     for key in dict_of_tuples:
@@ -171,11 +152,65 @@ def get_tuples_of_methods(dict_of_methods):
 
 
 def covariation_matrix(dict_of_dispersions, dict_of_cov):
-    matrix = []
+    shape = len(list(dict_of_dispersions.keys()))
+    matrix = create_empty_matrix_with_given_shape(shape)
+    print("Something: " + str(dict_of_dispersions.items()))
+    #place dispersion on diagonals
+    for i in range(0, shape):
+        matrix[i][i] = list(dict_of_dispersions.items())[i]
+    #place covariations
+    for i in range(0, shape - 1):
+        for j in range(0, shape - 1):
+            print("Tuple: " + str(matrix[i][j]))
+            if type(matrix[i][j]) is tuple:
+                for z in range(1, shape - j):
+                    matrix_tuple = (matrix[i][j][0], matrix[i+z][j+z][0])
+                    matrix[i][j+z] = dict_of_cov[matrix_tuple]
+                    matrix[i+z][j] = dict_of_cov[matrix_tuple]
+
+    for row in matrix:
+        print(str(row))
     print("Length of dispersion: " + str(len(list(dict_of_dispersions.keys()))))
     print("Length of cov: " + str(len(list(dict_of_cov.keys()))))
-    return
+    for i in range(shape):
+        for j in range(shape):
+            if type(matrix[i][j]) is tuple:
+                temp_tuple = matrix[i][j]
+                matrix[i][j] = temp_tuple[1]
+    return matrix
 
+
+def create_empty_matrix_with_given_shape(shape):
+    matrix = []
+    for i in range(0, shape):
+        row = []
+        for j in range(0, shape):
+            row.append(0)
+        matrix.append(row)
+    return matrix
+
+
+def count_wage_coef(cov_matrix, number_of_methods):
+    inv_matrix = np.linalg.inv(cov_matrix)
+    vector_column = []
+    for i in range(0, number_of_methods):
+        vector_column.append(1)
+    multiplyed_matrix1 = np.matmul(inv_matrix, vector_column)
+    print_matrix(multiplyed_matrix1)
+    multiplyed_matrix2 = np.matmul(vector_column, inv_matrix)
+    multiplyed_matrix3 = np.matmul(multiplyed_matrix2, vector_column)
+    return np.divide(multiplyed_matrix1, multiplyed_matrix3)
+
+
+def d_hist(distances, tit):
+    hist(distances)
+    title(tit)
+    show()
+
+
+def print_matrix(matrix):
+    for row in matrix:
+        print(str(row))
 
 def mid_square_error(dict_of_errors):
     dict_of_dispersion = {}
@@ -214,25 +249,23 @@ def run():
     evaluation_methods["mean"] = mean_grades
     median_grades = count_median(data)
     evaluation_methods["median"] = median_grades
-    mls = method_lowest_squares(data, mean_grades)
-    evaluation_methods["method of lowest squares"] = mls
-    mla = method_lowest_abs(data)
-    evaluation_methods["method of lowest absolutes"] = mla
     iterative_method = [iterative_eval(row) for row in data]
     evaluation_methods["iterative"] = iterative_method
-    # data_transposed = data.transpose()
     dist = distance(data, mean_grades)
     n_dist = n_distance(data, dist)
     competence_evaluation = comp_level(n_dist)
-    # transposed_matrix = data.transpose()
     print(str(data))
     print(amax(data))
     print("Mean for every object of experise: " + str(mean_grades))
+    d_hist(mean_grades, "Mean grades")
     print("Median for every object of experise: " + str(median_grades))
-    print("Method of lowest squares for every object of expertise: " + str(mls))
-    print("Method of lowest absolute for every object of expertise: " + str(mla))
+    d_hist(median_grades, "Median grades")
     print("Iterative method for every object of expertise: " + str(iterative_method))
+    d_hist(iterative_method, "Iterative grades")
     print("Competence level:" + str(competence_evaluation))
+    eval_with_competence = objects_eval(data, competence_evaluation)
+    d_hist(eval_with_competence, "Competence grades")
+    evaluation_methods["competence"] = eval_with_competence
     errors_for_method(evaluation_methods, u)
     print(str(evaluation_methods_errors))
     # TODO make cov for more 2 methods (use dictionary and loops to make structure)
@@ -240,9 +273,11 @@ def run():
     print(str(cov(evaluation_methods_errors)))
     dispersion_dict = mid_square_error(evaluation_methods_errors)
     print(str(dispersion_dict))
-    covariation_matrix(dispersion_dict, dict_cov)
-
-
+    cov_matrix = covariation_matrix(dispersion_dict, dict_cov)
+    print_matrix(cov_matrix)
+    wage_coef = count_wage_coef(cov_matrix, 4)
+    print("Wage coef")
+    print_matrix(wage_coef)
 
 if __name__ == '__main__':
    run()
